@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Geocode multiple Address</title>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+    <!-- Google Maps API -->
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <!-- Google CDN for jQuery -->
+    <script src="geolocationmarker-compiled.js" type="text/javascript"></script>
+
+
+    <script>
+        // Google map object
+        var geocoder;
+        var map;
+        var bounds = new google.maps.LatLngBounds();
+        var GeoMarker;
+
+        function initialize() {
+            map = new google.maps.Map(
+                document.getElementById("map_canvas"), {
+                    center: new google.maps.LatLng(),
+                    zoom: 10,
+                    mapTypeId: google.maps.MapTypeId.ROADMAP
+                });
+
+            if (navigator.geolocation) {
+
+                geocoder = new google.maps.Geocoder();
+                var url = '/scrape';
+                 // var locations =[{"tour":"Delhi","location":"HSR LAYOUT,14th Main Rd, 23rd Cross","date":"09/02/2015"}];
+                var locations;
+                $.ajax({
+                    type: 'GET',
+                    url: url,
+                    dataType: 'json',
+                    success: function(data) {
+                        locations = data;
+                    },
+                    async: false
+                });
+
+                for (var i = 0; i < locations.length; i++) {
+                    geocodeAddress(locations[i]);
+                }
+                GeoMarker = new GeolocationMarker(map);
+                GeoMarker.setCircleOptions({
+                    fillColor: '#808080'
+                });
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    initialLocation = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                    map.setCenter(initialLocation);
+                });
+
+            }
+        }
+
+        google.maps.event.addDomListener(window, "load", initialize);
+
+        function geocodeAddress(locations) {
+            var title = locations.tour;
+            var address = locations.location;
+            var url = locations.tickets;
+            var date = locations.date;
+
+            geocoder.geocode({
+                    'address': address
+                },
+
+                function(results, status) {
+                    if (status == google.maps.GeocoderStatus.OK) {
+                        var marker = new google.maps.Marker({
+                            map: map,
+                            position: results[0].geometry.location,
+                            title: title,
+                            animation: google.maps.Animation.DROP,
+                            address: address,
+                            url: url,
+                            date: date
+                        })
+                        infoWindow(marker, map, title, address, url, date, new Date(date));
+                        bounds.extend(marker.getPosition());
+                        bounds.extend(GeoMarker.getPosition())
+                        map.fitBounds(bounds);
+                    } else {
+                        console.log("geocode of " + address + " failed:" + status);
+                    }
+                });
+        }
+        var sethtml = function(infowindow, title, remaining, address, url, shorten) {
+            var html = "<div><h3>" + title + "</h3><h3>" + showRemaining(remaining) + "</h3><p>" + address + "<br></div><a href='" + url + "'>View location</a></p></div>";
+            if (shorten) {
+                html = "<div> <strong style='font-size: 10px;line-height: 20px'></strong>" + title + "<h6>" + showRemaining(remaining) + "</h6></div>";
+            }
+
+            infowindow.setContent(html);
+        }
+
+        function infoWindow(marker, map, title, address, url, date, remaining) {
+            var infowindow = new google.maps.InfoWindow({
+                maxWidth: 100,
+                maxHeight: 50
+            });
+            sethtml(infowindow, title, remaining, address, url, true);
+            setInterval(function() {
+                sethtml(infowindow, title, remaining, address, url, true);
+
+            }, 1000);
+            infowindow.open(map, marker);
+            marker.setMap(map);
+
+            google.maps.event.addListener(marker, 'click', function() {
+                var infowindow = new google.maps.InfoWindow({
+                    maxWidth: 300,
+                    maxHeight: 150
+                });
+                sethtml(infowindow, title, remaining, address, url);
+                setInterval(function() {
+                    sethtml(infowindow, title, remaining, address, url);
+                }, 1000);
+                infowindow.open(map, marker);
+            });
+            marker.setMap(map);
+        }
+
+        var _second = 1000;
+        var _minute = _second * 60;
+        var _hour = _minute * 60;
+        var _day = _hour * 24;
+        var timer;
+
+        function showRemaining(enddate) {
+            var now = new Date();
+            var distance = enddate - now;
+            if (distance < 0) {
+
+                clearInterval(timer);
+                document.getElementById('countdown').innerHTML = 'EXPIRED!';
+
+                return;
+            }
+            var days = Math.floor(distance / _day);
+            var hours = Math.floor((distance % _day) / _hour);
+            var minutes = Math.floor((distance % _hour) / _minute);
+            var seconds = Math.floor((distance % _minute) / _second);
+            return days + 'days ' + hours + ' hrs ' + minutes + ' mins ' + seconds + 'secs ';
+        }
+    </script>
+    <style>
+        /* style settings for Google map */
+        
+        #map_canvas {
+            /* width: 1350px; */
+            /* height: 600px; */
+            margin: 0px;
+            border: 2px solid rgb(56, 114, 172);
+            overflow: hidden;
+            transform: translateZ(0px);
+            background-color: rgb(229, 227, 223);
+            position: absolute;
+            bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map_canvas"></div>
+</body>
+
+</html>
